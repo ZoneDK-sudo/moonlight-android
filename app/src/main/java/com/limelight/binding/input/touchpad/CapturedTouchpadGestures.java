@@ -2,6 +2,7 @@ package com.limelight.binding.input.touchpad;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 
@@ -34,6 +35,7 @@ public final class CapturedTouchpadGestures implements TouchpadGestureTracker.Mo
 
     private TouchpadGestureTracker tracker;
     private int trackedDeviceId = -1;
+    private long tapClickHeldUntil;
 
     /**
      * The finger whose position stands for the gesture. It is followed by id
@@ -135,8 +137,16 @@ public final class CapturedTouchpadGestures implements TouchpadGestureTracker.Mo
         }
     }
 
+    /**
+     * @return true while a tap-to-click is still holding its button down on the host
+     */
+    public boolean isTapClickHeld() {
+        return SystemClock.uptimeMillis() < tapClickHeldUntil;
+    }
+
     @Override
     public void click(byte button) {
+        tapClickHeldUntil = SystemClock.uptimeMillis() + CLICK_HOLD_MS;
         conn.sendMouseButtonDown(button);
 
         Runnable release = button == MouseButtonPacket.BUTTON_RIGHT ? releaseRight : releaseLeft;

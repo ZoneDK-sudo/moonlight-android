@@ -95,6 +95,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
     private int lastButtonState = 0;
 
+    // While a touchpad button is held, small finger motion is held back so a click does not
+    // reach the host as a tiny drag. The Windows taskbar and desktop shell cancel a click that
+    // moves past their drag threshold, and pressing on a touch keyboard always shifts the finger.
+    private static final int TOUCHPAD_CLICK_SLOP = 15;
+    private static final int TOUCHPAD_CLICK_BUTTONS = MotionEvent.BUTTON_PRIMARY |
+            MotionEvent.BUTTON_SECONDARY | MotionEvent.BUTTON_TERTIARY;
+    private int touchpadHeldDeltaX, touchpadHeldDeltaY;
+    private boolean touchpadClickSlopExceeded;
+
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
     private long threeFingerDownTime = 0;
@@ -1864,6 +1873,30 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     short deltaX = (short)inputCaptureProvider.getRelativeAxisX(event);
                     short deltaY = (short)inputCaptureProvider.getRelativeAxisY(event);
 
+                    if (eventSource == InputDevice.SOURCE_TOUCHPAD &&
+                            touchpadGestures != null && touchpadGestures.isTapClickHeld()) {
+                        // A tap-to-click is still holding its button: keep the cursor still
+                        // until it is released, for the same reason as below.
+                        deltaX = deltaY = 0;
+                    }
+                    else if (eventSource == InputDevice.SOURCE_TOUCHPAD &&
+                            (buttonState & TOUCHPAD_CLICK_BUTTONS) != 0 &&
+                            !touchpadClickSlopExceeded) {
+                        touchpadHeldDeltaX += deltaX;
+                        touchpadHeldDeltaY += deltaY;
+                        if (touchpadHeldDeltaX * touchpadHeldDeltaX + touchpadHeldDeltaY * touchpadHeldDeltaY >
+                                TOUCHPAD_CLICK_SLOP * TOUCHPAD_CLICK_SLOP) {
+                            // A deliberate drag: release everything held back so far
+                            touchpadClickSlopExceeded = true;
+                            deltaX = (short)touchpadHeldDeltaX;
+                            deltaY = (short)touchpadHeldDeltaY;
+                            touchpadHeldDeltaX = touchpadHeldDeltaY = 0;
+                        }
+                        else {
+                            deltaX = deltaY = 0;
+                        }
+                    }
+
                     if (deltaX != 0 || deltaY != 0) {
                         if (prefConfig.absoluteMouseMode) {
                             // NB: view may be null, but we can unconditionally use streamView because we don't need to adjust
@@ -2004,6 +2037,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
 
                 lastButtonState = buttonState;
+                if ((buttonState & TOUCHPAD_CLICK_BUTTONS) == 0) {
+                    // Button released without a drag: the held-back jitter is dropped
+                    touchpadClickSlopExceeded = false;
+                    touchpadHeldDeltaX = touchpadHeldDeltaY = 0;
+                }
             }
             // This case is for fingers
             else

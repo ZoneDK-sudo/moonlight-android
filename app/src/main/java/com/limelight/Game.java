@@ -118,6 +118,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private static final float SWIPE_WHEEL_UNITS_PER_PIXEL = 2.5f;
     private float swipeScrollRemainderX, swipeScrollRemainderY;
 
+    // MotionEvent.CLASSIFICATION_MULTI_FINGER_SWIPE, which the SDK this builds
+    // against does not expose
+    private static final int CLASSIFICATION_MULTI_FINGER_SWIPE = 4;
+
     /**
      * Android's touchpad gesture layer turns two-finger scrolling into a drag
      * of fake fingers classified as a two-finger swipe, and three-finger
@@ -161,7 +165,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return true;
         }
 
-        return classification == MotionEvent.CLASSIFICATION_MULTI_FINGER_SWIPE ||
+        return classification == CLASSIFICATION_MULTI_FINGER_SWIPE ||
                 classification == MotionEvent.CLASSIFICATION_PINCH;
     }
 

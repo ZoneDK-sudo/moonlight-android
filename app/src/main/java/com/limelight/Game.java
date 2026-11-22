@@ -146,10 +146,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     dy += event.getHistoricalAxisValue(MotionEvent.AXIS_GESTURE_SCROLL_Y_DISTANCE, i);
                 }
 
-                // Fingers moving down drag the content down, which is a scroll up: a
-                // positive wheel value. Sideways, fingers moving left scroll right.
-                float vertical = dy * SWIPE_WHEEL_UNITS_PER_PIXEL + swipeScrollRemainderY;
-                float horizontal = -dx * SWIPE_WHEEL_UNITS_PER_PIXEL + swipeScrollRemainderX;
+                // The gesture distance already carries Android's own scroll direction
+                // setting, and it runs opposite to the host's wheel: fingers moving
+                // down give a positive distance, which must turn the wheel down
+                // (negative) to match how the same touchpad scrolls on the host
+                // itself and in Android apps.
+                float vertical = -dy * SWIPE_WHEEL_UNITS_PER_PIXEL + swipeScrollRemainderY;
+                float horizontal = dx * SWIPE_WHEEL_UNITS_PER_PIXEL + swipeScrollRemainderX;
                 int wholeVertical = (int) vertical;
                 int wholeHorizontal = (int) horizontal;
                 swipeScrollRemainderY = vertical - wholeVertical;

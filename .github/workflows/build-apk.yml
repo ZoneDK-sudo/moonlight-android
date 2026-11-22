@@ -3,7 +3,7 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [steam-controller-2026]
+    branches: [steam-controller-2026, steam-plus-touchpad]
 
 jobs:
   build:
@@ -28,5 +28,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: moonlight-steam-controller-apk
+          name: moonlight-steam-touchpad-apk
           path: app/build/outputs/apk/nonRoot/debug/*.apk

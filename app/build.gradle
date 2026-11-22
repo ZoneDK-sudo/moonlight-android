@@ -81,8 +81,25 @@ android {
         }
     }
 
+    // A fixed debug key from CI, so each new build installs over the last one
+    def fixedDebugKeystore = System.getenv("DEBUG_KEYSTORE_PATH")
+    if (fixedDebugKeystore) {
+        signingConfigs {
+            fixedDebug {
+                storeFile file(fixedDebugKeystore)
+                storeType "pkcs12"
+                storePassword "android"
+                keyAlias "androiddebugkey"
+                keyPassword "android"
+            }
+        }
+    }
+
     buildTypes {
         debug {
+            if (fixedDebugKeystore) {
+                signingConfig signingConfigs.fixedDebug
+            }
             applicationIdSuffix ".debug"
             resValue "string", "app_label", "Moonlight (Debug)"
             resValue "string", "app_label_root", "Moonlight (Root Debug)"

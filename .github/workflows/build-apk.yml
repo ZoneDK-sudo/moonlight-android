@@ -32,8 +32,8 @@ jobs:
             echo "::error::DEBUG_KEYSTORE_B64 secret is missing"
             exit 1
           fi
-          mkdir -p ~/.android
-          echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+          echo "$DEBUG_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          echo "DEBUG_KEYSTORE_PATH=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
 
       - name: Build debug APK
         run: ./gradlew assembleNonRootDebug

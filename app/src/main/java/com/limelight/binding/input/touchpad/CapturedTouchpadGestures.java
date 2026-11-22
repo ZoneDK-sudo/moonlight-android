@@ -67,10 +67,30 @@ public final class CapturedTouchpadGestures implements TouchpadGestureTracker.Mo
      *         must not turn this event into pointer motion
      */
     public boolean handleEvent(MotionEvent event) {
+        return handleEventForMotion(event) == MOTION_BLOCK;
+    }
+
+    /** Send this event's motion, along with anything held back before it. */
+    public static final int MOTION_SEND = 0;
+    /** Hold this event's motion back: the touch may still be a tap. */
+    public static final int MOTION_HOLD = 1;
+    /** Drop this event's motion and anything held: a tap just clicked. */
+    public static final int MOTION_DISCARD = 2;
+    /** No motion from these fingers: a multi-finger gesture is running. */
+    public static final int MOTION_BLOCK = 3;
+
+    private boolean clickedThisEvent;
+
+    /**
+     * @return what the caller should do with this event's pointer motion,
+     *         one of the {@code MOTION_*} values
+     */
+    public int handleEventForMotion(MotionEvent event) {
         if (event.getSource() != InputDevice.SOURCE_TOUCHPAD) {
-            return false;
+            return MOTION_SEND;
         }
 
+        clickedThisEvent = false;
         TouchpadGestureTracker gestures = trackerFor(event);
 
         // A physical click is reported by the hardware already; recognising a
@@ -118,7 +138,16 @@ public final class CapturedTouchpadGestures implements TouchpadGestureTracker.Mo
                 break;
         }
 
-        return gestures.isMultiFingerGestureActive();
+        if (gestures.isMultiFingerGestureActive()) {
+            return MOTION_BLOCK;
+        }
+        if (clickedThisEvent) {
+            return MOTION_DISCARD;
+        }
+        if (gestures.isTapCandidate(event.getEventTime())) {
+            return MOTION_HOLD;
+        }
+        return MOTION_SEND;
     }
 
     /**
@@ -147,6 +176,7 @@ public final class CapturedTouchpadGestures implements TouchpadGestureTracker.Mo
     @Override
     public void click(byte button) {
         tapClickHeldUntil = SystemClock.uptimeMillis() + CLICK_HOLD_MS;
+        clickedThisEvent = true;
         conn.sendMouseButtonDown(button);
 
         Runnable release = button == MouseButtonPacket.BUTTON_RIGHT ? releaseRight : releaseLeft;

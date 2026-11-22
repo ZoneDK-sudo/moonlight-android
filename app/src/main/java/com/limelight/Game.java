@@ -98,11 +98,18 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // While a touchpad button is held, small finger motion is held back so a click does not
     // reach the host as a tiny drag. The Windows taskbar and desktop shell cancel a click that
     // moves past their drag threshold, and pressing on a touch keyboard always shifts the finger.
-    private static final int TOUCHPAD_CLICK_SLOP = 15;
+    private static final int TOUCHPAD_CLICK_SLOP = 50;
     private static final int TOUCHPAD_CLICK_BUTTONS = MotionEvent.BUTTON_PRIMARY |
             MotionEvent.BUTTON_SECONDARY | MotionEvent.BUTTON_TERTIARY;
     private int touchpadHeldDeltaX, touchpadHeldDeltaY;
     private boolean touchpadClickSlopExceeded;
+
+    // Motion held back while a single-finger touch could still be a tap
+    private int touchpadTapDeltaX, touchpadTapDeltaY;
+
+    private static short clampToShort(int value) {
+        return (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value));
+    }
 
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
@@ -1858,8 +1865,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 // arrives as a button, but tap-to-click and two-finger scrolling do not.
                 // Recognise them here, and hold back pointer motion while a multi-finger
                 // gesture is running so the cursor does not wander off mid-scroll.
-                boolean touchpadGestureInProgress = touchpadGestures != null &&
-                        touchpadGestures.handleEvent(event);
+                int touchpadMotion = touchpadGestures != null ?
+                        touchpadGestures.handleEventForMotion(event) :
+                        CapturedTouchpadGestures.MOTION_SEND;
+                boolean touchpadGestureInProgress =
+                        touchpadMotion == CapturedTouchpadGestures.MOTION_BLOCK;
+                if (touchpadGestureInProgress) {
+                    touchpadTapDeltaX = touchpadTapDeltaY = 0;
+                }
 
                 // Always update the position before sending any button events. If we're
                 // dealing with a stylus without hover support, our position might be
@@ -1872,6 +1885,27 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     // Send the deltas straight from the motion event
                     short deltaX = (short)inputCaptureProvider.getRelativeAxisX(event);
                     short deltaY = (short)inputCaptureProvider.getRelativeAxisY(event);
+
+                    if (eventSource == InputDevice.SOURCE_TOUCHPAD) {
+                        if (touchpadMotion == CapturedTouchpadGestures.MOTION_HOLD) {
+                            // This touch may still be a tap: keep its motion back, since a
+                            // landing finger can report a jump that would miss the target
+                            touchpadTapDeltaX += deltaX;
+                            touchpadTapDeltaY += deltaY;
+                            deltaX = deltaY = 0;
+                        }
+                        else if (touchpadMotion == CapturedTouchpadGestures.MOTION_DISCARD) {
+                            // It was a tap: the click lands where the cursor already was
+                            touchpadTapDeltaX = touchpadTapDeltaY = 0;
+                            deltaX = deltaY = 0;
+                        }
+                        else if (touchpadTapDeltaX != 0 || touchpadTapDeltaY != 0) {
+                            // Not a tap after all: catch up on what was held back
+                            deltaX = clampToShort(deltaX + touchpadTapDeltaX);
+                            deltaY = clampToShort(deltaY + touchpadTapDeltaY);
+                            touchpadTapDeltaX = touchpadTapDeltaY = 0;
+                        }
+                    }
 
                     if (eventSource == InputDevice.SOURCE_TOUCHPAD &&
                             touchpadGestures != null && touchpadGestures.isTapClickHeld()) {

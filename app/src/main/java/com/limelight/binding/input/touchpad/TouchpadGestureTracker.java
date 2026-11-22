@@ -205,6 +205,18 @@ public final class TouchpadGestureTracker {
         return gestureActive && fingersDown >= 2;
     }
 
+    /**
+     * True while the single finger down could still turn out to be a tap. The
+     * caller holds back pointer motion meanwhile: some pads report a jump in
+     * relative motion when a finger lands, which would move the cursor off
+     * the target the tap is meant for.
+     */
+    public boolean isTapCandidate(long eventTime) {
+        return gestureActive && !disqualified && !movedPastSlop &&
+                maxFingersInGesture == 1 &&
+                eventTime - startTime <= TAP_MAX_DURATION_MS;
+    }
+
     private static short clampToShort(int value) {
         return (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value));
     }
